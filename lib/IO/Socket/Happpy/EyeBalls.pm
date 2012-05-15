@@ -3,25 +3,66 @@ package IO::Socket::Happpy::EyeBalls;
 use warnings;
 use strict;
 use Carp;
+use Socket qw(:all);
+use parent qw(IO::Socket::INET);
+use Time::HiRes qw(usleep);
 
-use version; $VERSION = qv('0.0.3');
+use version; our $VERSION = qv('0.0.1');
 
-# Other recommended modules (uncomment to use):
-#  use IO::Prompt;
-#  use Perl6::Export;
-#  use Perl6::Slurp;
-#  use Perl6::Say;
+sub configure {
+    my( $self, $args ) = @_;
 
+    my $hints;
+    $hints->{socktype} =  $args->{Type} if exists $args->{Type};
+    $hints->{family} = AF_INET6;
 
-# Module implementation here
+    my $conn_timeout = $args->{ConnectTimeout} || 300000;    # default 300ms
+    my $host         = $args->{PeerAddr};
+    my $service      = $args->{PeerPort};
+    my( $err, @peerinfo ) = getaddrinfo $host, $service, $hints;
+    if ( not $err ) {
+        for my $peer (@peerinfo) {
+            my $result = $self->_nonblock_connect( $peer, $conn_timeout );
+            if ( defined $result ) {
+                my $blocking = $args->{Blocking};
+                # XXX block order must be opporsite
+                $self->blocking($blocking) if $blocking;
+                return $self;
+            }
+        }
+    }
+    # fallback to parent class
+    $self->SUPER::configure($args);
+}
 
+sub _nonblock_connect {
+    my( $self, $peer, $timeout ) = @_;
+    my $proto    = $peer->{protocol};
+    my $family   = $peer->{family};
+    my $socktype = $peer->{socktype};
+    my $addr     = $peer->{addr};
 
-1; # Magic true value required at end of module
+    my $result;
+    $result = $self->socket( $family, $socktype, $proto );
+    $self->blocking(0);
+    $result or croak "failed to open socket";
+    $result = CORE::connect( $self, $addr );
+    my $period = $timeout / 10;
+    for ( 1..10 ) { # trivial event watcher...
+        return 1 if $self->connected;
+        usleep $period;
+    }
+    $self->blocking(1);
+    $self->close;
+    return;
+}
+
+1;
 __END__
 
 =head1 NAME
 
-IO::Socket::Happpy::EyeBalls - [One line description of module's purpose here]
+IO::Socket::Happpy::EyeBalls - Perl implementation of RFC6555 - Happy Eyeballs
 
 
 =head1 VERSION
@@ -32,103 +73,64 @@ This document describes IO::Socket::Happpy::EyeBalls version 0.0.1
 =head1 SYNOPSIS
 
     use IO::Socket::Happpy::EyeBalls;
+    my $socket = IO::Socket::Happpy::EyeBalls->new(
+        Proto    => 'tcp',
+        PeerAddr => $addr,
+        PeerPort => $port,
+    );
+    $socket->connected;
+    warn $socket->sockdomain # PF_INET or PF_INET6
 
-=for author to fill in:
-    Brief code example(s) here showing commonest usage(s).
-    This section will be as far as many users bother reading
-    so make it as educational and exeplary as possible.
-  
-  
 =head1 DESCRIPTION
 
-=for author to fill in:
-    Write a full description of the module and its features here.
-    Use subsections (=head2, =head3) as appropriate.
+This module is Perl implementation of RFC6555 - Happy Eyeballs.
+
+The implementation of RFC6555 here is same as web browsers implementation 
+such as google chrome or firefox,
+describes as "6.  Example Algorithm" in RFC6555 as far as I understand.
+
+This modules tries to connect ipv6 address first if exists.
+Wait for 300ms (can be changed by ConnectTimeout param).
+if the session has be connected before its timeout, returns ipv6 socket.
+Otherwise passes arguments to base class (IO::Socket::INET).
+# And it tries to connect ipv4 address.
+
+This module is yet experimental. There are plenty way to implement RFC6555 and this is one example.
+
+Known issues below.
+
+- Namespace is too long. Maybe it does not require the indipendent namespace but an option paramater of the IO::Socket::IP is enough. Like this.
+
+    my $socket = IO::Socket::IP->new(
+        Proto     => 'tcp',
+        PeerAddr  => $addr,
+        PeerPort  => $port,
+        Algorithm => 'happyeyeballs',
+    );
+
+- AE::io is better for the io watcher to detect if the ipv6 socket has been connected. I don't use it because for the simplicity though.
 
 
-=head1 INTERFACE 
-
-=for author to fill in:
-    Write a separate section listing the public components of the modules
-    interface. These normally consist of either subroutines that may be
-    exported, or methods that may be called on objects belonging to the
-    classes provided by the module.
-
-
-=head1 DIAGNOSTICS
-
-=for author to fill in:
-    List every single error and warning message that the module can
-    generate (even the ones that will "never happen"), with a full
-    explanation of each problem, one or more likely causes, and any
-    suggested remedies.
+=head2 Methods
 
 =over
 
-=item C<< Error message here, perhaps with %s placeholders >>
+=item configure
 
-[Description of error here]
-
-=item C<< Another error message here >>
-
-[Description of error here]
-
-[Et cetera, et cetera]
+override the configure method and tries to connect ipv6 first.
+Fall backs to base class method is ipv6 connection fails.
 
 =back
 
 
-=head1 CONFIGURATION AND ENVIRONMENT
-
-=for author to fill in:
-    A full explanation of any configuration system(s) used by the
-    module, including the names and locations of any configuration
-    files, and the meaning of any environment variables or properties
-    that can be set. These descriptions must also include details of any
-    configuration language used.
-  
-IO::Socket::Happpy::EyeBalls requires no configuration files or environment variables.
-
-
-=head1 DEPENDENCIES
-
-=for author to fill in:
-    A list of all the other modules that this module relies upon,
-    including any restrictions on versions, and an indication whether
-    the module is part of the standard Perl distribution, part of the
-    module's distribution, or must be installed separately. ]
-
-None.
-
-
 =head1 INCOMPATIBILITIES
-
-=for author to fill in:
-    A list of any modules that this module cannot be used in conjunction
-    with. This may be due to name conflicts in the interface, or
-    competition for system or program resources, or due to internal
-    limitations of Perl (for example, many modules that use source code
-    filters are mutually incompatible).
 
 None reported.
 
 
 =head1 BUGS AND LIMITATIONS
 
-=for author to fill in:
-    A list of known problems with the module, together with some
-    indication Whether they are likely to be fixed in an upcoming
-    release. Also a list of restrictions on the features the module
-    does provide: data types that cannot be handled, performance issues
-    and the circumstances in which they may arise, practical
-    limitations on the size of data sets, special cases that are not
-    (yet) handled, etc.
-
-No bugs have been reported.
-
-Please report any bugs or feature requests to
-C<bug-io-socket-happpy-eyeballs@rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org>.
+Please report any bugs or feature requests to AUTHOR.
 
 
 =head1 AUTHOR
