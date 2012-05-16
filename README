@@ -1,19 +1,16 @@
 IO-Socket-Happpy-EyeBalls version 0.0.1
 
-[ REPLACE THIS...
+This module is Perl implementation of RFC6555 - Happy Eyeballs.
 
-  The README is used to introduce the module and provide instructions on
-  how to install the module, any machine dependencies it may have (for
-  example C compilers and installed libraries) and any other information
-  that should be understood before the module is installed.
+The implementation of RFC6555 here is same as web browsers implementation 
+such as google chrome or firefox,
+describes as "6.  Example Algorithm" in RFC6555 as far as I understand.
 
-  A README file is required for CPAN modules since CPAN extracts the
-  README file from a module distribution so that people browsing the
-  archive can use it get an idea of the modules uses. It is usually a
-  good idea to provide version information here so that people can
-  decide whether fixes for the module are worth downloading.
-]
-
+This modules tries to connect ipv6 address first if exists.
+Wait for 300ms (can be changed by ConnectTimeout param).
+if the session has be connected before its timeout, returns ipv6 socket.
+Otherwise passes arguments to base class (IO::Socket::INET).
+# And it tries to connect ipv4 address.
 
 INSTALLATION
 
