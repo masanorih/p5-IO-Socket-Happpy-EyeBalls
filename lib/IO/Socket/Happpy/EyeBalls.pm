@@ -3,9 +3,10 @@ package IO::Socket::Happpy::EyeBalls;
 use warnings;
 use strict;
 use Carp;
+use Scalar::Util qw(looks_like_number);
 use Socket qw(:all);
-use parent qw(IO::Socket::INET);
 use Time::HiRes qw(usleep);
+use parent qw(IO::Socket::INET);
 
 use version; our $VERSION = qv('0.0.1');
 
@@ -13,10 +14,10 @@ sub configure {
     my( $self, $args ) = @_;
 
     my $hints;
-    $hints->{socktype} =  $args->{Type} if exists $args->{Type};
+    $hints->{socktype} = $args->{Type} if exists $args->{Type};
     $hints->{family} = AF_INET6;
 
-    my $conn_timeout = $args->{ConnectTimeout} || 300000;    # default 300ms
+    my $conn_timeout = $args->{ConnectTimeout} || 300000;    # default is 300ms
     my $host         = $args->{PeerAddr};
     my $service      = $args->{PeerPort};
     my( $err, @peerinfo ) = getaddrinfo $host, $service, $hints;
@@ -24,8 +25,8 @@ sub configure {
         for my $peer (@peerinfo) {
             my $result = $self->_nonblock_connect( $peer, $conn_timeout );
             if ( defined $result ) {
-                my $blocking = $args->{Blocking};
-                # XXX block order must be opporsite
+                # restore blocking mode
+                my $blocking = exists $args->{Blocking} ? $args->{Blocking} : 1;
                 $self->blocking($blocking) if $blocking;
                 return $self;
             }
@@ -48,7 +49,7 @@ sub _nonblock_connect {
     $result or croak "failed to open socket";
     $result = CORE::connect( $self, $addr );
     my $period = $timeout / 10;
-    for ( 1..10 ) { # trivial event watcher...
+    for ( 1 .. 10 ) {    # trivial event watcher...
         return 1 if $self->connected;
         usleep $period;
     }

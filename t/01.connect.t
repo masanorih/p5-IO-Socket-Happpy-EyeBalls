@@ -20,6 +20,30 @@ if ( $ENV{TEST_IPV6HOST} ) {
         :                                       undef;
     ok $familyname, "domain family is $familyname";
 
+    is $socket->blocking, 1, 'socket is blocking mode by default';
+    $socket->close;
+
+    $socket = IO::Socket::Happpy::EyeBalls->new(
+        Proto    => 'tcp',
+        PeerAddr => $ENV{TEST_IPV6HOST},
+        PeerPort => 80,
+        Type     => SOCK_STREAM,
+        Blocking => 0,
+    );
+    ok $socket->connected, "socket is connected to $ENV{TEST_IPV6HOST}";
+    is $socket->blocking, 0, 'socket is non-blocking mode now';
+    $socket->close;
+
+    $socket = IO::Socket::Happpy::EyeBalls->new(
+        Proto    => 'tcp',
+        PeerAddr => $ENV{TEST_IPV6HOST},
+        PeerPort => 80,
+        Type     => SOCK_STREAM,
+        Blocking => 1,
+    );
+    ok $socket->connected, "socket is connected to $ENV{TEST_IPV6HOST}";
+    is $socket->blocking, 1, 'socket is blocking mode now';
+
     done_testing;
 }
 else {
