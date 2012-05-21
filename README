@@ -1,37 +1,72 @@
-IO-Socket-Happpy-EyeBalls version 0.0.1
+NAME
+    IO::Socket::Happpy::EyeBalls - Perl implementation of RFC6555 - Happy
+    Eyeballs
 
-This module is Perl implementation of RFC6555 - Happy Eyeballs.
+VERSION
+    This document describes IO::Socket::Happpy::EyeBalls version 0.0.1
 
-The implementation of RFC6555 here is same as web browsers implementation 
-such as google chrome or firefox,
-describes as "6.  Example Algorithm" in RFC6555 as far as I understand.
+SYNOPSIS
+        use IO::Socket::Happpy::EyeBalls;
+        my $socket = IO::Socket::Happpy::EyeBalls->new(
+            Proto    => 'tcp',
+            PeerAddr => $addr,
+            PeerPort => $port,
+        );
+        $socket->connected;
+        warn $socket->sockdomain # PF_INET or PF_INET6
 
-This modules tries to connect ipv6 address first if exists.
-Wait for 300ms (can be changed by ConnectTimeout param).
-if the session has be connected before its timeout, returns ipv6 socket.
-Otherwise passes arguments to base class (IO::Socket::INET).
-# And it tries to connect ipv4 address.
+DESCRIPTION
+    This module is Perl implementation of RFC6555 - Happy Eyeballs.
+
+    The implementation of RFC6555 here is same as web browsers
+    implementation such as google chrome or firefox, describes as "6.
+    Example Algorithm" in RFC6555 as far as I understand.
+
+    This modules tries to connect ipv6 address first if exists. Wait for
+    300ms (can be changed by ConnectTimeout param). if the session has be
+    connected before its timeout, returns ipv6 socket. Otherwise passes
+    arguments to base class (IO::Socket::INET). # And it tries to connect
+    ipv4 address.
+
+    This module is yet experimental. There are plenty way to implement
+    RFC6555 and this is one example.
+
+    Known issues below.
+
+    - Namespace is too long. Maybe it does not require the indipendent
+    namespace but an option paramater of the IO::Socket::IP is enough. Like
+    this.
+
+        my $socket = IO::Socket::IP->new(
+            Proto     => 'tcp',
+            PeerAddr  => $addr,
+            PeerPort  => $port,
+            Algorithm => 'happyeyeballs',
+        );
+
+    - AE::io is better for the io watcher to detect if the ipv6 socket has
+    been connected. I don't use it because for the simplicity though.
+
+  Methods
+    configure
+        override the configure method and tries to connect ipv6 first. Fall
+        backs to base class method is ipv6 connection fails.
 
 INSTALLATION
 
 To install this module, run the following commands:
 
-	perl Makefile.PL
-	make
-	make test
-	make install
+    perl Makefile.PL
+    make
+    make test
+    make install
 
 Alternatively, to install with Module::Build, you can use the following commands:
 
-	perl Build.PL
-	./Build
-	./Build test
-	./Build install
-
-
-DEPENDENCIES
-
-None.
+    perl Build.PL
+    ./Build
+    ./Build test
+    ./Build install
 
 
 COPYRIGHT AND LICENCE

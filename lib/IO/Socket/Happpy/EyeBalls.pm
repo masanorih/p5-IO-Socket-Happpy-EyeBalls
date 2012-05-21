@@ -3,37 +3,66 @@ package IO::Socket::Happpy::EyeBalls;
 use warnings;
 use strict;
 use Carp;
-use Scalar::Util qw(looks_like_number);
 use Socket qw(:all);
 use Time::HiRes qw(usleep);
 use parent qw(IO::Socket::INET);
 
 use version; our $VERSION = qv('0.0.1');
+our $IPV6_CACHE;
 
 sub configure {
     my( $self, $args ) = @_;
 
-    my $hints;
-    $hints->{socktype} = $args->{Type} if exists $args->{Type};
-    $hints->{family} = AF_INET6;
-
-    my $conn_timeout = $args->{ConnectTimeout} || 300000;    # default is 300ms
-    my $host         = $args->{PeerAddr};
-    my $service      = $args->{PeerPort};
-    my( $err, @peerinfo ) = getaddrinfo $host, $service, $hints;
-    if ( not $err ) {
-        for my $peer (@peerinfo) {
-            my $result = $self->_nonblock_connect( $peer, $conn_timeout );
-            if ( defined $result ) {
-                # restore blocking mode
-                my $blocking = exists $args->{Blocking} ? $args->{Blocking} : 1;
-                $self->blocking($blocking) if $blocking;
-                return $self;
+    if ( $self->_has_ipv6_cache ) {
+        my $peer    = $IPV6_CACHE->[1];
+        my $timeout = $args->{ConnectTimeout} || 300000;
+        my $result  = $self->_nonblock_connect( $peer, $timeout );
+        if ( defined $result ) {
+            $self->_restore_blocking($args);
+            return $self;
+        }
+    }
+    else {
+        my $hints;
+        $hints->{socktype} = $args->{Type} if exists $args->{Type};
+        $hints->{family} = AF_INET6;
+        # default is 300ms
+        my $timeout = $args->{ConnectTimeout} || 300000;
+        my $host    = $args->{PeerAddr};
+        my $service = $args->{PeerPort};
+        my( $err, @peerinfo ) = getaddrinfo $host, $service, $hints;
+        if ( not $err ) {
+            for my $peer (@peerinfo) {
+                my $result = $self->_nonblock_connect( $peer, $timeout );
+                if ( defined $result ) {
+                    $self->_restore_blocking($args);
+                    $IPV6_CACHE = [ time(), $peer ];
+                    return $self;
+                }
             }
         }
     }
     # fallback to parent class
     $self->SUPER::configure($args);
+}
+
+sub _has_ipv6_cache {
+    my $self = shift;
+    return unless $IPV6_CACHE;
+    my $time = $IPV6_CACHE->[0];
+    my $peer = $IPV6_CACHE->[1];
+    # flash old cache
+    if ( time > $time + 600 ) {
+        $IPV6_CACHE = undef;
+        return;
+    }
+    return 1;
+}
+
+sub _restore_blocking {
+    my( $self, $args ) = @_;
+    my $blocking = exists $args->{Blocking} ? $args->{Blocking} : 1;
+    $self->blocking($blocking) if $blocking;
 }
 
 sub _nonblock_connect {

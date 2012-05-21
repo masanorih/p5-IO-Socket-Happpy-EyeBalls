@@ -1,0 +1,6 @@
+
+- cache control. flash every 10min 
+    done.
+- change namespace
+- maybe the patch of IO::Socket::IP ?
+- to follow address preference policy (order of getaddrinfo) option
