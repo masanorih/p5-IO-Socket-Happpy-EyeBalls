@@ -1,6 +1,10 @@
 
 - cache control. flash every 10min 
     done.
+- to follow address preference policy (result of getaddrinfo)
+    done.
+
+- use AnyEvent if exists
+- negative cache
 - change namespace
 - maybe the patch of IO::Socket::IP ?
-- to follow address preference policy (order of getaddrinfo) option

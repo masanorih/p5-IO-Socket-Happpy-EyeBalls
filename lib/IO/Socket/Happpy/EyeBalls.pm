@@ -3,50 +3,71 @@ package IO::Socket::Happpy::EyeBalls;
 use warnings;
 use strict;
 use Carp;
+use Errno qw( EINVAL EINPROGRESS );
 use Socket qw(:all);
 use Time::HiRes qw(usleep);
 use parent qw(IO::Socket::INET);
 
-use version; our $VERSION = qv('0.0.1');
+use version; our $VERSION = qv('0.0.2');
 our $IPV6_CACHE;
 
 sub configure {
     my( $self, $args ) = @_;
 
-    if ( $self->_has_ipv6_cache ) {
-        my $peer    = $IPV6_CACHE->[1];
-        my $timeout = $args->{ConnectTimeout} || 300000;
-        my $result  = $self->_nonblock_connect( $peer, $timeout );
+    my $timeout = $args->{ConnectTimeout} || 300000;    # default is 300ms
+    if ( my $peer = $self->_has_succeed_peer ) {
+        my $result = $self->_nonblock_connect( $peer, $timeout );
         if ( defined $result ) {
             $self->_restore_blocking($args);
             return $self;
         }
     }
-    else {
-        my $hints;
-        $hints->{socktype} = $args->{Type} if exists $args->{Type};
-        $hints->{family} = AF_INET6;
-        # default is 300ms
-        my $timeout = $args->{ConnectTimeout} || 300000;
-        my $host    = $args->{PeerAddr};
-        my $service = $args->{PeerPort};
-        my( $err, @peerinfo ) = getaddrinfo $host, $service, $hints;
-        if ( not $err ) {
-            for my $peer (@peerinfo) {
-                my $result = $self->_nonblock_connect( $peer, $timeout );
-                if ( defined $result ) {
-                    $self->_restore_blocking($args);
-                    $IPV6_CACHE = [ time(), $peer ];
-                    return $self;
-                }
+
+    my $hints;
+    $hints->{socktype} = $args->{Type} if exists $args->{Type};
+    $hints->{family} = AF_UNSPEC;
+    my $host    = $args->{PeerAddr};
+    my $service = $args->{PeerPort};
+    my( $err, @peerinfo ) = getaddrinfo $host, $service, $hints;
+    if ($err) {
+        $@ = "$err";
+        $! = EINVAL;
+        return;
+    }
+    my @sorted = $self->_sort_peerinfo(@peerinfo);
+    for my $peer (@sorted) {
+        if ( $peer->{family} == PF_INET6 ) {
+            my $result = $self->_nonblock_connect( $peer, $timeout );
+            if ( defined $result ) {
+                $self->_restore_blocking($args);
+                $IPV6_CACHE = [ time(), $peer ];
+                return $self;
             }
         }
+        else {
+            my $result = $self->SUPER::configure($args);
+            return $self;
+        }
     }
-    # fallback to parent class
-    $self->SUPER::configure($args);
 }
 
-sub _has_ipv6_cache {
+sub _sort_peerinfo {
+    my( $self, @peerinfo ) = @_;
+    my $primary = shift @peerinfo;
+    my @sorted;
+    push @sorted, $primary;
+    if ( $primary->{family} == PF_INET6 ) {
+        my @rest = sort { $a->{family} <=> $b->{family} } @peerinfo;
+        push @sorted, @rest;
+    }
+    else {
+        my @rest = sort { $b->{family} <=> $a->{family} } @peerinfo;
+        push @sorted, @rest;
+    }
+    return @sorted;
+}
+
+sub _has_succeed_peer {
     my $self = shift;
     return unless $IPV6_CACHE;
     my $time = $IPV6_CACHE->[0];
@@ -56,7 +77,7 @@ sub _has_ipv6_cache {
         $IPV6_CACHE = undef;
         return;
     }
-    return 1;
+    return $peer;
 }
 
 sub _restore_blocking {
@@ -97,7 +118,7 @@ IO::Socket::Happpy::EyeBalls - Perl implementation of RFC6555 - Happy Eyeballs
 
 =head1 VERSION
 
-This document describes IO::Socket::Happpy::EyeBalls version 0.0.1
+This document describes IO::Socket::Happpy::EyeBalls version 0.0.2
 
 
 =head1 SYNOPSIS

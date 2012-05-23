@@ -9,6 +9,7 @@ if ( $ENV{TEST_IPV4HOST} ) {
         PeerAddr => $ENV{TEST_IPV4HOST},
         PeerPort => 80,
         Type     => SOCK_STREAM,
+        Timeout  => 10,
     );
 
     ok $socket, 'ok new';

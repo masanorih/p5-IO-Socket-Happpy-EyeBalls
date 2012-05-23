@@ -10,6 +10,7 @@ if ( $ENV{TEST_IPV6HOST} ) {
         PeerAddr => $ENV{TEST_IPV6HOST},
         PeerPort => 80,
         Type     => SOCK_STREAM,
+        Timeout  => 10,
     );
 
     ok $socket, 'ok new';
@@ -22,24 +23,25 @@ if ( $ENV{TEST_IPV6HOST} ) {
 
     is $socket->blocking, 1, 'socket is blocking mode by default';
     $socket->close;
-
+    # specify non-blocking
     $socket = IO::Socket::Happpy::EyeBalls->new(
         Proto    => 'tcp',
         PeerAddr => $ENV{TEST_IPV6HOST},
         PeerPort => 80,
         Type     => SOCK_STREAM,
         Blocking => 0,
+        Timeout  => 10,
     );
-    ok $socket->connected, "socket is connected to $ENV{TEST_IPV6HOST}";
     is $socket->blocking, 0, 'socket is non-blocking mode now';
     $socket->close;
-
+    # specify blocking
     $socket = IO::Socket::Happpy::EyeBalls->new(
         Proto    => 'tcp',
         PeerAddr => $ENV{TEST_IPV6HOST},
         PeerPort => 80,
         Type     => SOCK_STREAM,
         Blocking => 1,
+        Timeout  => 10,
     );
     ok $socket->connected, "socket is connected to $ENV{TEST_IPV6HOST}";
     is $socket->blocking, 1, 'socket is blocking mode now';

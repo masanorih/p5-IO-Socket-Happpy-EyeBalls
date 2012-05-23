@@ -3,7 +3,7 @@ NAME
     Eyeballs
 
 VERSION
-    This document describes IO::Socket::Happpy::EyeBalls version 0.0.1
+    This document describes IO::Socket::Happpy::EyeBalls version 0.0.2
 
 SYNOPSIS
         use IO::Socket::Happpy::EyeBalls;

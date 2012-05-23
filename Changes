@@ -1,5 +1,7 @@
 Revision history for IO-Socket-Happpy-EyeBalls
 
 0.0.1  Wed May 16 21:42:49 2012
-       Initial release.
+        Initial release.
 
+0.0.2  Wed May 23 16:15:42 2012
+        Follow getaddrinfo order
